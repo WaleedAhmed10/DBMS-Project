@@ -1,0 +1,161 @@
+CREATE DATABASE IF NOT EXISTS space_saver;
+USE space_saver;
+
+CREATE TABLE Vehicles 
+(
+    vehicleNum VARCHAR(15) PRIMARY KEY,
+    ownerName VARCHAR(100) NOT NULL,
+    contactNum BIGINT NOT NULL CHECK (contactNum > 1000000000),
+    vehicleType ENUM('FourWheeler', 'TwoWheeler') NOT NULL,
+    hasCarrier BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE ParkingSlots 
+(
+    slotID INT AUTO_INCREMENT PRIMARY KEY,
+    slotType ENUM('Car', 'Bike') NOT NULL,
+    isOccupied BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE Tickets 
+(
+    ticketID INT AUTO_INCREMENT PRIMARY KEY,
+    entryTime DATETIME NOT NULL,
+    exitTime DATETIME,
+    duration INT CHECK (duration IS NULL OR duration >= 0),
+    vehicleNum VARCHAR(15),
+    FOREIGN KEY (vehicleNum) REFERENCES Vehicles(vehicleNum) ON DELETE CASCADE
+);
+
+CREATE TABLE Alerts 
+(
+    alertID INT AUTO_INCREMENT PRIMARY KEY,
+    vehicleNum VARCHAR(15),
+    message TEXT,
+    alertTime TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO ParkingSlots (slotType, isOccupied)
+VALUES 
+('Car', FALSE),
+('Bike', FALSE),
+('Car', FALSE),
+('Bike', FALSE),
+('Car', FALSE);
+
+CREATE VIEW AvailableSlots AS
+SELECT slotID, slotType
+FROM ParkingSlots
+WHERE isOccupied = FALSE;
+
+DELIMITER //
+
+CREATE PROCEDURE RegisterVehicle
+(
+    IN p_vehicleNum VARCHAR(15),
+    IN p_ownerName VARCHAR(100),
+    IN p_contactNum BIGINT,
+    IN p_vehicleType ENUM('FourWheeler', 'TwoWheeler'),
+    IN p_hasCarrier BOOLEAN
+)
+BEGIN
+    DECLARE slotId INT;
+    DECLARE slotTypeNeeded ENUM('Car', 'Bike');
+
+    IF p_vehicleType = 'FourWheeler' THEN
+        SET slotTypeNeeded = 'Car';
+    ELSE
+        SET slotTypeNeeded = 'Bike';
+    END IF;
+
+    SELECT slotID INTO slotId
+    FROM ParkingSlots
+    WHERE isOccupied = FALSE AND slotType = slotTypeNeeded
+    LIMIT 1;
+
+    IF slotId IS NOT NULL THEN
+        INSERT INTO Vehicles(vehicleNum, ownerName, contactNum, vehicleType, hasCarrier)
+        VALUES (p_vehicleNum, p_ownerName, p_contactNum, p_vehicleType, p_hasCarrier);
+
+        UPDATE ParkingSlots SET isOccupied = TRUE WHERE slotID = slotId;
+
+        INSERT INTO Tickets(entryTime, vehicleNum)
+        VALUES (NOW(), p_vehicleNum);
+    ELSE
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'No suitable parking slot available.';
+    END IF;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE ExitVehicle
+(
+    IN p_vehicleNum VARCHAR(15)
+)
+BEGIN
+    DECLARE v_entryTime DATETIME;
+    DECLARE v_exitTime DATETIME;
+    DECLARE v_duration INT;
+    SET v_exitTime = NOW();
+    SELECT entryTime INTO v_entryTime
+    FROM Tickets
+    WHERE vehicleNum = p_vehicleNum AND exitTime IS NULL
+    LIMIT 1;
+    SET v_duration = TIMESTAMPDIFF(HOUR, v_entryTime, v_exitTime);
+    UPDATE Tickets
+    SET exitTime = v_exitTime, duration = v_duration
+    WHERE vehicleNum = p_vehicleNum AND exitTime IS NULL;
+    UPDATE ParkingSlots
+    SET isOccupied = FALSE
+    WHERE slotID = (
+        SELECT slotID FROM (
+            SELECT ps.slotID
+            FROM ParkingSlots ps
+            JOIN Vehicles v ON v.vehicleNum = p_vehicleNum
+            JOIN Tickets t ON t.vehicleNum = v.vehicleNum
+            WHERE ps.isOccupied = TRUE
+            LIMIT 1
+        ) AS temp
+    );
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE FUNCTION TotalRevenue()
+RETURNS DECIMAL(10,2)
+DETERMINISTIC
+BEGIN
+    DECLARE total DECIMAL(10,2);
+    SELECT IFNULL(SUM(duration * 10), 0) INTO total
+    FROM Tickets
+    WHERE duration IS NOT NULL;
+    RETURN total;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE TRIGGER AlertLongParking
+AFTER UPDATE ON Tickets
+FOR EACH ROW
+BEGIN
+    IF NEW.exitTime IS NULL AND TIMESTAMPDIFF(HOUR, NEW.entryTime, NOW()) > 2 THEN
+        INSERT INTO Alerts(vehicleNum, message)
+        VALUES (
+            NEW.vehicleNum,
+            CONCAT('Vehicle ', NEW.vehicleNum, ' parked more than 2 hours.')
+        );
+    END IF;
+END //
+
+DELIMITER ;
+
+CREATE INDEX idx_vehicleNum ON Vehicles(vehicleNum);
+CREATE INDEX idx_entryTime ON Tickets(entryTime);
+CREATE INDEX idx_slotOccupied ON ParkingSlots(isOccupied);

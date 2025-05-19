@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+
+<AnchorPane xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/16"
+            fx:controller="com.example.oopfrontproject.MainController" prefHeight="600.0" prefWidth="800.0">
+    <children>
+        <!-- Title -->
+        <Label text="Parking Management System" layoutX="250.0" layoutY="10.0">
+            <font>
+                <Font size="24.0" />
+            </font>
+        </Label>
+
+        <!-- Input Section -->
+        <VBox layoutX="50.0" layoutY="50.0" spacing="10.0">
+            <Label text="Register Vehicle" style="-fx-font-size: 16px; -fx-font-weight: bold;" />
+            <TextField fx:id="vehicleNumberField" promptText="Vehicle Number" />
+            <TextField fx:id="ownerNameField" promptText="Owner Name" />
+            <TextField fx:id="contactNumberField" promptText="Contact Number" />
+            <HBox spacing="10.0">
+                <ComboBox fx:id="vehicleTypeComboBox" promptText="Vehicle Type" />
+                <CheckBox fx:id="hasCarrierCheckBox" text="Has Carrier" />
+            </HBox>
+            <Button fx:id="registerVehicleButton" text="Register Vehicle" onAction="#handleRegisterVehicle" />
+        </VBox>
+
+        <!-- Actions Section -->
+        <VBox layoutX="400.0" layoutY="50.0" spacing="10.0">
+            <Label text="Actions" style="-fx-font-size: 16px; -fx-font-weight: bold;" />
+            <Button fx:id="viewSlotsButton" text="View Parking Slots" onAction="#handleDisplaySlots" />
+            <Button fx:id="generateReportButton" text="Generate Report" onAction="#handleGenerateReport" />
+            <Button fx:id="timeAlertButton" text="Send Time Alerts" onAction="#handleNotifyAlerts" />
+        </VBox>
+
+        <!-- Output Section -->
+        <VBox layoutX="50.0" layoutY="250.0" prefWidth="700.0" spacing="10.0">
+            <Label text="Output" style="-fx-font-size: 16px; -fx-font-weight: bold;" />
+            <TextArea fx:id="outputArea" prefHeight="200.0" prefWidth="700.0" wrapText="true" editable="false" />
+        </VBox>
+
+        <!-- Parking Slots Table -->
+        <VBox layoutX="50.0" layoutY="480.0" prefWidth="700.0">
+            <Label text="Parking Slots" style="-fx-font-size: 16px; -fx-font-weight: bold;" />
+            <TableView fx:id="slotsTable" prefHeight="150.0" prefWidth="700.0">
+                <columns>
+                    <TableColumn text="Slot" fx:id="slotColumn" prefWidth="350.0" />
+                    <TableColumn text="Status" fx:id="statusColumn" prefWidth="350.0" />
+                </columns>
+            </TableView>
+        </VBox>
+
+        <!-- Parking Slot List -->
+        <VBox layoutX="50.0" layoutY="480.0" prefWidth="700.0" visible="false">
+            <Label text="Parking Slot List" style="-fx-font-size: 16px; -fx-font-weight: bold;" />
+            <ListView fx:id="slotListView" prefHeight="200.0" prefWidth="700.0" />
+        </VBox>
+    </children>
+</AnchorPane>
